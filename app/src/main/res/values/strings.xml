@@ -40,4 +40,12 @@
     <string name="decimal">Enter decimal value</string>
     <string name="digits">0123456789,.</string>
 
+    <string name="add">Add</string>
+    <string name="refresh">Refresh</string>
+    <string name="help">Help</string>
+
+    <string name="select">Select</string>
+    <string name="clear">Clear</string>
+    <string name="cancel">Cancel</string>
+
 </resources>

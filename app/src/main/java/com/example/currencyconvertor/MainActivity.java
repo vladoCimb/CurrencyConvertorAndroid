@@ -1,14 +1,23 @@
 package com.example.currencyconvertor;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import org.json.JSONArray;
+
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -79,6 +88,10 @@ public class MainActivity extends AppCompatActivity {
             R.drawable.flag_sgd, R.drawable.flag_thb, R.drawable.flag_zar
     };
 
+    final static String CHOICE = "choice";
+    public static final String PREF_NAMES = "pref_names";
+    public static final String PREF_VALUES = "pref_values";
+
     private ImageView flagView;
     private TextView nameView;
     private TextView symbolView;
@@ -130,6 +143,54 @@ public class MainActivity extends AppCompatActivity {
         listView.setAdapter(adapter);
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+
+        switch (id) {
+            // Add
+            case R.id.action_add:
+                return onAddClick();
+
+            // Refresh
+            case R.id.action_refresh:
+                return onRefreshClick();
+        }
+        return false;
+    }
+
+    private boolean onAddClick()
+    {
+        // Start the choice dialog
+        Intent intent = new Intent(this, ChoiceActivity.class);
+        startActivityForResult(intent, 0);
+
+        return true;
+    }
+
+    private boolean onRefreshClick()
+    {
+//        // Check connectivity before refresh
+//        ConnectivityManager manager =
+//                (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+//        NetworkInfo info = manager.getActiveNetworkInfo();
+//
+//        // Check connected
+//
+//        // Start the task
+//        if (data != null)
+//            data.startParseTask(ECB_DAILY_URL);
+
+        return true;
+    }
+
     public void createInitList(){
         flagList.add(CURRENCY_FLAGS[1]);
         nameList.add(CURRENCY_NAMES[1]);
@@ -151,6 +212,57 @@ public class MainActivity extends AppCompatActivity {
         longNameList.add(CURRENCY_LONGNAMES[6]);
 
 
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode,
+                                    Intent data)
+    {
+        // Do nothing if cancelled
+        if (resultCode != RESULT_OK)
+            return;
+
+        // Get index list from intent
+        List<Integer> indexList = data.getIntegerArrayListExtra(CHOICE);
+
+        // Add currencies from list
+        for (int index : indexList)
+        {
+            // Don't add duplicates
+            if (nameList.contains(CURRENCY_NAMES[index]))
+                continue;
+
+            flagList.add(CURRENCY_FLAGS[index]);
+            nameList.add(CURRENCY_NAMES[index]);
+            symbolList.add(CURRENCY_SYMBOLS[index]);
+            longNameList.add(CURRENCY_LONGNAMES[index]);
+
+            Double value = 1.0;
+
+
+            NumberFormat numberFormat = NumberFormat.getInstance();
+            String s = numberFormat.format(value);
+
+            valueList.add(s);
+        }
+
+        // Get preferences
+        SharedPreferences preferences =
+                PreferenceManager.getDefaultSharedPreferences(this);
+
+        // Get editor
+        SharedPreferences.Editor editor = preferences.edit();
+
+        // Get entries
+        JSONArray nameArray = new JSONArray(nameList);
+        JSONArray valueArray = new JSONArray(valueList);
+
+        //update preferences
+        editor.putString(PREF_NAMES, nameArray.toString());
+        editor.putString(PREF_VALUES, valueArray.toString());
+        editor.apply();
+
+        adapter.notifyDataSetChanged();
     }
 
 }
