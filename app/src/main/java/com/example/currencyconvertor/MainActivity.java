@@ -7,9 +7,13 @@ import android.net.NetworkInfo;
 import android.preference.PreferenceManager;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
@@ -19,9 +23,12 @@ import org.json.JSONArray;
 
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements TextWatcher, AdapterView.OnItemClickListener {
 
     // Initial currency name list
     public static final String CURRENCY_LIST[] =
@@ -91,6 +98,8 @@ public class MainActivity extends AppCompatActivity {
     final static String CHOICE = "choice";
     public static final String PREF_NAMES = "pref_names";
     public static final String PREF_VALUES = "pref_values";
+    public static final String ECB_DAILY_URL =
+            "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml";
 
     private ImageView flagView;
     private TextView nameView;
@@ -100,6 +109,9 @@ public class MainActivity extends AppCompatActivity {
     private ListView listView;
     private CurrencyAdapter adapter;
 
+    private boolean selectAll = true;
+    private boolean select = true;
+
     private List<Integer> flagList;
     private List<String> nameList;
     private List<String> symbolList;
@@ -107,7 +119,17 @@ public class MainActivity extends AppCompatActivity {
     private List<Integer> longNameList;
 
     private List<Integer> selectList;
+    private List<String> currencyNameList;
 
+    private int currentIndex = 0;
+
+    private Map<String, Double> valueMap;
+
+    private Parser parser;
+
+
+    private double currentValue = 1.0;
+    private double convertValue = 1.0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -131,16 +153,84 @@ public class MainActivity extends AppCompatActivity {
         editView = findViewById(R.id.edit);
         longNameView = findViewById(R.id.long_name);
 
+        parser = new Parser();
+        parser.createDummyValue();
 
+        valueMap = parser.getMap();
+
+        currencyNameList = Arrays.asList(CURRENCY_NAMES);
 
 
         createInitList();
+
+        if (editView != null)
+        {
+            editView.addTextChangedListener(this);
+        }
+
+        if (listView != null)
+        {
+            listView.setOnItemClickListener(this);
+        }
 
         adapter = new CurrencyAdapter(this, R.layout.item, flagList, nameList,
                 symbolList, valueList, longNameList,
                 selectList);
 
         listView.setAdapter(adapter);
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onResume(){
+        super.onResume();
+
+        NumberFormat numberFormat = NumberFormat.getInstance();
+        numberFormat.setMinimumFractionDigits(3);
+        numberFormat.setMaximumFractionDigits(3);
+
+        NumberFormat englishFormat = NumberFormat.getInstance(Locale.ENGLISH);
+
+        String n = editView.getText().toString();
+        if (n.length() > 0)
+        {
+            // Parse current value
+            try
+            {
+                Number number = numberFormat.parse(n);
+                currentValue = number.doubleValue();
+            }
+            catch (Exception e)
+            {
+                // Try English locale
+                try
+                {
+                    Number number = englishFormat.parse(n);
+                    currentValue = number.doubleValue();
+                }
+
+                // Do nothing on exception
+                catch (Exception ex)
+                {
+                    return;
+                }
+            }
+        }
+
+        // Recalculate all the values
+        valueList.clear();
+        for (String name : nameList)
+        {
+            Double value = (currentValue / convertValue) *
+                    valueMap.get(name);
+
+            String s = numberFormat.format(value);
+            valueList.add(s);
+        }
+
+        // Notify the adapter
+        adapter.notifyDataSetChanged();
+
     }
 
     @Override
@@ -195,20 +285,20 @@ public class MainActivity extends AppCompatActivity {
         flagList.add(CURRENCY_FLAGS[1]);
         nameList.add(CURRENCY_NAMES[1]);
         symbolList.add(CURRENCY_SYMBOLS[1]);
-        valueList.add("1");
+        valueList.add(valueMap.get(CURRENCY_NAMES[1]).toString());
         longNameList.add(CURRENCY_LONGNAMES[1]);
 
         flagList.add(CURRENCY_FLAGS[4]);
         nameList.add(CURRENCY_NAMES[4]);
         symbolList.add(CURRENCY_SYMBOLS[4]);
-        valueList.add("1");
+        valueList.add(valueMap.get(CURRENCY_NAMES[4]).toString());
         longNameList.add(CURRENCY_LONGNAMES[4]);
 
 
         flagList.add(CURRENCY_FLAGS[6]);
         nameList.add(CURRENCY_NAMES[6]);
         symbolList.add(CURRENCY_SYMBOLS[6]);
-        valueList.add("1");
+        valueList.add(valueMap.get(CURRENCY_NAMES[6]).toString());
         longNameList.add(CURRENCY_LONGNAMES[6]);
 
 
@@ -265,4 +355,152 @@ public class MainActivity extends AppCompatActivity {
         adapter.notifyDataSetChanged();
     }
 
+    @Override
+    public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+    }
+
+    @Override
+    public void onTextChanged(CharSequence s, int start, int before, int count) {
+
+    }
+
+    @Override
+    public void afterTextChanged(Editable editable) {
+        NumberFormat numberFormat = NumberFormat.getInstance();
+        numberFormat.setMinimumFractionDigits(3);
+        numberFormat.setMaximumFractionDigits(3);
+
+        NumberFormat englishFormat = NumberFormat.getInstance(Locale.ENGLISH);
+
+        String n = editable.toString();
+        if (n.length() > 0)
+        {
+            // Parse current value
+            try
+            {
+                Number number = numberFormat.parse(n);
+                currentValue = number.doubleValue();
+            }
+            catch (Exception e)
+            {
+                // Try English locale
+                try
+                {
+                    Number number = englishFormat.parse(n);
+                    currentValue = number.doubleValue();
+                }
+
+                // Do nothing on exception
+                catch (Exception ex)
+                {
+                    return;
+                }
+            }
+        }
+
+        // Recalculate all the values
+        valueList.clear();
+        for (String name : nameList)
+        {
+            Double value = (currentValue / convertValue) *
+                    valueMap.get(name);
+
+            String s = numberFormat.format(value);
+            valueList.add(s);
+        }
+
+        // Notify the adapter
+        adapter.notifyDataSetChanged();
+    }
+
+    @Override
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+        String value;
+        int oldIndex;
+        double oldValue;
+
+        NumberFormat numberFormat = NumberFormat.getInstance();
+        numberFormat.setMinimumFractionDigits(3);
+        numberFormat.setMaximumFractionDigits(3);
+
+        oldIndex = currentIndex;
+        oldValue = currentValue;
+
+        // Set the current currency from the list
+        currentIndex = currencyNameList.indexOf(nameList.get(position));
+
+        currentValue = (oldValue / convertValue) *
+                valueMap.get(CURRENCY_NAMES[currentIndex]);
+
+        convertValue = valueMap.get(CURRENCY_NAMES[currentIndex]);
+
+        numberFormat.setGroupingUsed(false);
+        value = numberFormat.format(currentValue);
+
+        if (editView != null)
+        {
+            editView.setText(value);
+            if (selectAll)
+            {
+                // Forces select all
+                editView.clearFocus();
+                editView.requestFocus();
+            }
+
+            // Do it only once
+            select = false;
+        }
+
+        if (flagView != null)
+            flagView.setImageResource(CURRENCY_FLAGS[currentIndex]);
+        if (nameView != null)
+            nameView.setText(CURRENCY_NAMES[currentIndex]);
+        if (symbolView != null)
+            symbolView.setText(CURRENCY_SYMBOLS[currentIndex]);
+        if (longNameView != null)
+            longNameView.setText(CURRENCY_LONGNAMES[currentIndex]);
+
+        // Remove the selected currency from the lists
+        flagList.remove(position);
+        nameList.remove(position);
+        symbolList.remove(position);
+        valueList.remove(position);
+        longNameList.remove(position);
+
+        // Add the old current currency to the end of the list
+        flagList.add(CURRENCY_FLAGS[oldIndex]);
+        nameList.add(CURRENCY_NAMES[oldIndex]);
+        symbolList.add(CURRENCY_SYMBOLS[oldIndex]);
+        longNameList.add(CURRENCY_LONGNAMES[oldIndex]);
+
+        numberFormat.setGroupingUsed(true);
+        value = numberFormat.format(oldValue);
+        valueList.add(value);
+//
+//        // Get preferences
+//        SharedPreferences preferences =
+//                PreferenceManager.getDefaultSharedPreferences(this);
+//
+//        // Get editor
+//        SharedPreferences.Editor editor = preferences.edit();
+//
+//        // Get entries
+//        JSONArray nameArray = new JSONArray(nameList);
+//        JSONArray valueArray = new JSONArray(valueList);
+//
+//        // Update preferences
+//        editor.putString(PREF_NAMES, nameArray.toString());
+//        editor.putString(PREF_VALUES, valueArray.toString());
+//        editor.putInt(PREF_INDEX, currentIndex);
+//        numberFormat.setGroupingUsed(false);
+//        value = numberFormat.format(currentValue);
+//        editor.putString(PREF_VALUE, value);
+//        editor.apply();
+
+        // Notify the adapter
+        adapter.notifyDataSetChanged();
+
+    }
 }
